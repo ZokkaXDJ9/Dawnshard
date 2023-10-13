@@ -227,21 +227,18 @@ public class QuestService(
     {
         DbQuestEvent questEvent = await questRepository.GetQuestEventAsync(eventGroupId);
 
-        int questId =
-            await questCacheService.GetQuestGroupQuestIdAsync(eventGroupId)
-            ?? throw new DragaliaException(
-                ResultCode.CommonDbError,
-                $"Could not find latest quest clear id for group {eventGroupId} in cache."
-            );
+        int? questId = await questCacheService.GetQuestGroupQuestIdAsync(eventGroupId);
 
-        if (!isReceive)
+        if (!isReceive || questId == null)
         {
+            logger.LogInformation("Cancelling receipt of quest bonus");
+
             questEvent.QuestBonusReserveCount = 0;
             questEvent.QuestBonusReserveTime = DateTimeOffset.UnixEpoch;
 
             await questCacheService.RemoveQuestGroupQuestIdAsync(eventGroupId);
 
-            return new AtgenReceiveQuestBonus() { target_quest_id = questId };
+            return new AtgenReceiveQuestBonus() { target_quest_id = questId ?? 0 };
         }
 
         if (count > questEvent.QuestBonusReserveCount + questEvent.QuestBonusStackCount)
